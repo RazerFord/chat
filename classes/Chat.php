@@ -37,6 +37,18 @@ class Chat
         $ask = $this->seal(json_encode($messageArray));
         return $ask;
     }
+    
+    public function newDisconnectedACK($client_ip_adress)
+    {
+        $message = "Client " . $client_ip_adress . " disconnected\n";
+        $messageArray = [
+            "message" => $message,
+            "type" => "newDisonnectedACK"
+        ];
+
+        $ask = $this->seal(json_encode($messageArray));
+        return $ask;
+    }
 
     public function seal($socketData)
     {
@@ -59,10 +71,45 @@ class Chat
     {
         $messageLenght = strlen($message);
 
-        foreach($clientSocketArray as $clientSocket) {
+        foreach ($clientSocketArray as $clientSocket) {
             @socket_write($clientSocket, $message, $messageLenght);
         }
 
         return true;
+    }
+
+    public function unseal($socketData)
+    {
+        $lenght = ord($socketData[1]) & 127;
+
+        if ($lenght == 126) {
+            $mask = substr($socketData, 4, 4);
+            $data = substr($socketData, 8);
+        } elseif ($lenght == 127) {
+            $mask = substr($socketData, 10, 4);
+            $data = substr($socketData, 14);
+        } else {
+            $mask = substr($socketData, 2, 4);
+            $data = substr($socketData, 6);
+        }
+
+        
+        $socketStr = "";
+        for ((int)$i = 0; $i < strlen($data); ++$i) {
+            $socketStr .= $data[$i] ^ $mask[$i % 4];
+        }
+        
+        return $socketStr;
+    }
+
+    public function createChatMessage($userName, $message)
+    {
+        $message = $userName . "<div>" . $message . "</div>";
+        $messageArray = [
+            "type" => "chat-box",
+            "message" => $message
+        ];
+
+        return $this->seal(json_encode($messageArray));
     }
 }
