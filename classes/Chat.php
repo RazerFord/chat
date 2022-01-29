@@ -25,4 +25,44 @@ class Chat
 
         socket_write($newSocket, $strHeader, strlen($strHeader));
     }
+
+    public function newConnectionACK($client_ip_adress)
+    {
+        $message = "New client " . $client_ip_adress . " connected\n";
+        $messageArray = [
+            "message" => $message,
+            "type" => "newConnectionACK"
+        ];
+
+        $ask = $this->seal(json_encode($messageArray));
+        return $ask;
+    }
+
+    public function seal($socketData)
+    {
+        $byte1 = 0x81;
+        $lenght = strlen($socketData);
+        $header = "";
+
+        if ($lenght <= 125) {
+            $header = pack('CC', $byte1, $lenght);
+        } elseif ($lenght > 125 && $lenght <= 65536) {
+            $header = pack('CCn', $byte1, 126, $lenght);
+        } elseif ($lenght > 65536) {
+            $header = pack('CCNN', $byte1, 127, $lenght);
+        }
+
+        return $header . $socketData;
+    }
+
+    public function send($message, $clientSocketArray)
+    {
+        $messageLenght = strlen($message);
+
+        foreach($clientSocketArray as $clientSocket) {
+            @socket_write($clientSocket, $message, $messageLenght);
+        }
+
+        return true;
+    }
 }
